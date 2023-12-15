@@ -1,0 +1,129 @@
+Застосування
+Шаблон рекомендований для використання в умовах:
+
+В розроблюваної системі є група об'єктів, які можуть обробляти повідомлення певного типу;
+Всі повідомлення повинні бути оброблені хоча б одним об'єктом системи;
+Повідомлення в системі обробляються за схемою «обробив сам або передай іншому», тобто одні повідомлення обробляються на тому рівні, де вони отримані, а інші пересилаються об'єктам іншого рівня.
+Переваги
+Відокремлює відправника запиту та його одержувачів.
+Спрощує ваш об'єкт, оскільки він не повинен знати про структуру ланцюга та зберігати прямі посилання на його членів.
+Дозволяє динамічно додавати або видаляти відповідальність, змінюючи учасників або замовлення ланцюга.
+Недоліки
+Важко спостерігати характеристики виконання та налагодження.
+
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+template< typename T> void purge(T& cont)
+{
+	for (typename T::iterator it = cont.begin(); it != cont.end(); ++it)
+	{
+		delete *it;
+	}
+	cont.clear();
+}
+enum Answer { NO, YES };
+// загальний спосіб вирішення
+struct GimmeStrategy
+{
+	virtual Answer canIHave() = 0;
+	virtual ~GimmeStrategy() {}
+};
+// конкрентні способи
+struct AskMom : public GimmeStrategy
+{
+	Answer canIHave()
+	{
+		cout << " Mooom ? Can I have this ? " << endl;
+		return NO;
+	}
+};
+struct AskDad : public GimmeStrategy
+{
+	Answer canIHave()
+	{
+		cout << " Dad.I really need this!" << endl;
+		return NO;
+	}
+};
+struct AskGrandpa : public GimmeStrategy
+{
+	Answer canIHave()
+	{
+		cout << " Grandpa, is it my birthday yet ? " << endl;
+		return NO;
+	}
+};
+struct AskGrandma : public GimmeStrategy
+{
+	Answer canIHave()
+	{
+		cout << " Grandma, I really love you!" << endl;
+		return YES;
+	}
+};
+class Gimme : public GimmeStrategy
+{
+private:
+	vector< GimmeStrategy*> chain;
+public:
+	Gimme()
+	{
+		chain.push_back(new AskMom());
+		chain.push_back(new AskDad());
+		chain.push_back(new AskGrandpa());
+		chain.push_back(new AskGrandma());
+	}
+	Answer canIHave()
+	{
+		vector< GimmeStrategy*> ::iterator it = chain.begin();
+		while (it != chain.end())
+		{
+			if ((*it++)->canIHave() == YES)
+			{
+				return YES;
+			}
+		}
+		cout << " whiiiilnnne!" << endl;
+		return NO;
+	}
+	~Gimme()
+	{
+		purge(chain);
+	}
+};
+// Альтернативний спосіб перебору стратегій – узагальнена рекурсія
+class Gimme2 : public GimmeStrategy
+{
+private:
+	vector< GimmeStrategy*> chain;
+	size_t toTry;
+public:
+	Gimme2() : toTry(0)
+	{
+		chain.push_back(new AskMom());
+		chain.push_back(new AskDad());
+		chain.push_back(new AskGrandpa());
+		chain.push_back(new AskDad());
+		chain.push_back(new AskMom());
+		chain.push_back(new AskGrandma());
+	}
+	Answer canIHave()
+	{
+		if (toTry >= chain.size()) return NO;
+		if (chain[toTry++]->canIHave() == YES) return YES;
+		return canIHave();
+	}
+	~Gimme2()
+	{
+		purge(chain);
+	}
+};
+void main()
+{
+	Gimme Boy;
+	if ((bool)Boy.canIHave()) cout << " *** Gimme is winner!\n";
+	else cout << " *** You must try again, Gimme...\n";
+}
